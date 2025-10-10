@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual env
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Builds / Caches
+dist/
+build/
+*.egg-info/
+*.log
+.cache/
+
+# Datenbanken & große Daten
+*.sqlite
+*.db
+data/raw/
+data/external/
