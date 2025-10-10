@@ -48,29 +48,59 @@ class FXDataLoader:
         self.conn.commit()
 
     def download(self, ticker: str, start: str, end: str | None = None, interval: str = "1d"):
-        """Lädt Kursdaten via yfinance und gibt ein bereinigtes DataFrame zurück."""
+        """
+        Lädt FX-Daten via yfinance und gibt ein *flaches* DataFrame zurück
+        (Spalten: date, open, high, low, close, volume).
+        Behandelt den Fall, dass yfinance MultiIndex-Spalten liefert.
+        """
+        import pandas as pd
+        import yfinance as yf
+
+        # 1) Daten von Yahoo Finance holen
         df = yf.download(
-            ticker,
-            start=start,
-            end=end,
-            interval=interval,
-            progress=False,
-            auto_adjust=False,
+            ticker, start=start, end=end, interval=interval,
+            progress=False, auto_adjust=False,
         )
+
+        # 2) Nichts gefunden? -> leeres DF zurück
         if df.empty:
             print(f"[WARN] Keine Daten für {ticker} gefunden.")
             return df
 
-        # Spaltennamen vereinheitlichen (alles klein)
-        df = df.rename(columns=str.lower)
+        # 3) Falls yfinance MultiIndex-Spalten liefert (z.B. ('Open','eurusd=x')):
+        if isinstance(df.columns, pd.MultiIndex):
+            # alle Symbole der letzten Ebene einsammeln (Reihenfolge beibehalten)
+            last_level = df.columns.get_level_values(-1)
+            symbols = list(dict.fromkeys(map(str, last_level)))
 
-        # Index (DatetimeIndex) in Spalte 'date' konvertieren
-        df["date"] = pd.to_datetime(df.index).strftime("%Y-%m-%d")
+            # a) exakter Treffer?
+            if ticker in last_level:
+                df = df.xs(ticker, axis=1, level=-1, drop_level=True)
+            else:
+                # b) case-insensitive Treffer?
+                match = next((s for s in symbols if s.lower() == ticker.lower()), None)
+                if match is not None:
+                    df = df.xs(match, axis=1, level=-1, drop_level=True)
+                else:
+                    # c) wenn nur EIN Symbol vorhanden ist -> Ebene droppen
+                    if len(set(symbols)) == 1:
+                        df.columns = df.columns.droplevel(-1)
+                    else:
+                        raise KeyError(f"Ticker {ticker!r} nicht in Spalten gefunden. Vorhanden: {symbols}")
 
-        # Reset für sauberen Index
-        df = df.reset_index(drop=True)
+        # 4) Spalten vereinheitlichen & Datumsspalte erzeugen
+        df = df.rename(columns=str.lower)  # Open->open etc.
+        df.index = pd.to_datetime(df.index).tz_localize(None)
+        df["date"] = df.index.strftime("%Y-%m-%d")
 
-        return df[["date", "open", "high", "low", "close", "volume"]]
+        # 5) Nur benötigte Spalten bereitstellen (fehlende ergänzen)
+        cols = ["date", "open", "high", "low", "close", "volume"]
+        for c in cols:
+            if c not in df.columns:
+                df[c] = None
+
+        # 6) Flaches, speicherfertiges DF zurückgeben
+        return df[cols].reset_index(drop=True)
 
     def upsert(self, ticker: str, df: pd.DataFrame) -> int:
         """Schreibt Daten idempotent in SQLite (überschreibt vorhandene Zeilen)."""
@@ -106,6 +136,12 @@ class FXDataLoader:
         )
         self.conn.commit()
         return cur.rowcount
+
+    def latest_date(self, ticker: str) -> str | None:
+        """Gibt das zuletzt gespeicherte Datum (YYYY-MM-DD) für einen Ticker zurück."""
+        cur = self.conn.execute("SELECT MAX(date) FROM fx_rates WHERE ticker = ?;", (ticker,))
+        row = cur.fetchone()
+        return row[0] if row and row[0] else None
 
     def close(self) -> None:
         """Schließt die Datenbankverbindung."""
