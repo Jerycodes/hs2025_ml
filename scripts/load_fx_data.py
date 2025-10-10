@@ -12,7 +12,7 @@ from hs2025_ml.data.fx_loader import FXDataLoader
 
 def main():
     ticker = "EURUSD=X"
-    db_path = "db/fx_project.sqlite"
+    db_path = "../db/fx_project.sqlite"
 
     print(f"[INFO] Initialisiere FXDataLoader → {db_path}")
     loader = FXDataLoader(db_path)
