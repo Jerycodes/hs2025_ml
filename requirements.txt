@@ -4,7 +4,7 @@ numpy
 scikit-learn
 xgboost
 
-# Finance data
+# Finance data & web access
 yfinance
 requests
 beautifulsoup4
@@ -13,3 +13,6 @@ feedparser
 # Optional utilities
 matplotlib
 
+# Data sources & pipelines
+google-cloud-bigquery>=3.25.0   # Zugriff auf öffentliches GDELT BigQuery Dataset
+google-auth>=2.34.0             # Authentifizierung für Google Cloud APIs
