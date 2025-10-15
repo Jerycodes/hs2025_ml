@@ -5,7 +5,6 @@ Läuft robust, egal von wo gestartet (setzt den src/ Pfad dynamisch).
 
 from pathlib import Path
 import sys
-import os
 
 # --- src/ zum Python-Pfad hinzufügen (robust relativ zu diesem Skript) ---
 ROOT = Path(__file__).resolve().parents[1]     # Projektwurzel (hs2025_ml/)
@@ -18,7 +17,7 @@ from hs2025_ml.data.news_loader import NewsLoader  # <- funktioniert jetzt siche
 
 def main():
     nl = NewsLoader("db/fx_project.sqlite")
-    rows = nl.fetch_and_upsert("https://feeds.reuters.com/reuters/businessNews", "Reuters")
+    rows = nl.fetch_and_upsert("https://feeds.bbci.co.uk/news/business/rss.xml", "Reuters")
     print(f"[TEST] {rows} News gespeichert.")
     nl.close()
 
